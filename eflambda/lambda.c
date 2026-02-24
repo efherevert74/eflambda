@@ -1,4 +1,6 @@
 #include <ctype.h>
+#include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -116,6 +118,14 @@ Term *parse(char **str) {
         term->type = PApp;
 
         Term *left = parse(str);
+        char *str_lookahead = *str;
+        // abstraction/variable
+        if (lex(&str_lookahead).type == LRParen) {
+            *term = *left;
+            *str = str_lookahead;
+            break;
+        }
+        // application
         Term *right = parse(str);
         if (lex(str).type != LRParen) {
             term->type = PInv;
@@ -143,9 +153,8 @@ int display(char *buf, int buf_len, Term *term) {
         n += snprintf(buf, buf_len, "%c", term->var.name);
         break;
     case PAbs:
-        n += snprintf(buf, buf_len, "(\\%c.", term->abs.var.name);
+        n += snprintf(buf, buf_len, "\\%c.", term->abs.var.name);
         n += display(buf + n, buf_len - n, term->abs.body);
-        n += snprintf(buf + n, buf_len - n, ")");
 
         break;
     case PApp:
@@ -159,7 +168,43 @@ int display(char *buf, int buf_len, Term *term) {
     case PInv:
         break;
     }
+    buf[n] = '\0';
     return n;
 }
 
-Term *interpret(Term *term) {}
+void subst(Term *in, Var what, Term *to) {
+    switch (in->type) {
+    case PVar:
+        if (in->var.name == what.name) {
+            *in = *to;
+        }
+        break;
+    case PAbs:
+        subst(in->abs.body, what, to);
+        break;
+    case PApp:
+        subst(in->app.left, what, to);
+        subst(in->app.right, what, to);
+        break;
+    case PInv:
+        break;
+    }
+}
+
+bool reduce(Term *term) {
+    if (term->type == PApp) {
+        Term *left = term->app.left;
+        Term *right = term->app.right;
+        bool reduced = reduce(left) || reduce(right);
+
+        if (left->type == PAbs) {
+            subst(left, left->abs.var, right);
+            *term = *left->abs.body;
+            return true;
+        }
+        return reduced;
+    } else if (term->type == PAbs) {
+        return reduce(term->abs.body);
+    }
+    return false;
+}
