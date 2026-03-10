@@ -227,3 +227,23 @@ int display(char *buf, int buf_len, Term *term) {
     return n;
 }
 
+void dbg(Term* term) {
+    char buf[256];
+    display(buf, sizeof(buf), term);
+    char *typ;
+    switch (term->type) {
+    case TVar:
+        typ = "TVar";
+        break;
+    case TAbs:
+        typ = "TAbs";
+        break;
+    case TApp:
+        typ = "TApp";
+        break;
+    case TInv:
+        typ = "TInv";
+        break;
+    }
+    printf("%s:\t%s\n", typ, buf);
+}
