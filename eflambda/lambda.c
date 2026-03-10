@@ -1,5 +1,4 @@
 #include <ctype.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +26,7 @@ Tok lex(char **str) {
         switch (c) {
         case ' ':
         case '\n':
+        case '\t':
             continue;
         case '(':
             tok.type = LLParen;
@@ -78,10 +78,10 @@ typedef struct {
 } App;
 
 typedef enum {
-    PVar,
-    PAbs,
-    PApp,
-    PInv,
+    TVar,
+    TAbs,
+    TApp,
+    TInv,
 } TermType;
 
 struct Term {
@@ -93,31 +93,30 @@ struct Term {
     };
 };
 
-Term *parse(char **str) {
+Term *parse_once(char **str) {
     Tok tok = lex(str);
     Term *term = malloc(sizeof(Term));
     switch (tok.type) {
     case LVar:
-        term->type = PVar;
+        term->type = TVar;
         term->var = (Var){tok.var};
         break;
     case LLambda:
-        term->type = PAbs;
+        term->type = TAbs;
 
-        Term *var = parse(str);
-        if (var->type != PVar || lex(str).type != LDot) {
-            printf("a");
-            term->type = PInv;
+        Term *var = parse_once(str);
+        if (var->type != TVar || lex(str).type != LDot) {
+            term->type = TInv;
             break;
         }
-        Term *body = parse(str);
+        Term *body = parse_once(str);
 
         term->abs = (Abs){var->var, body};
         break;
     case LLParen:
-        term->type = PApp;
+        term->type = TApp;
 
-        Term *left = parse(str);
+        Term *left = parse_once(str);
         char *str_lookahead = *str;
         // abstraction/variable
         if (lex(&str_lookahead).type == LRParen) {
@@ -126,10 +125,9 @@ Term *parse(char **str) {
             break;
         }
         // application
-        Term *right = parse(str);
+        Term *right = parse_once(str);
         if (lex(str).type != LRParen) {
-            term->type = PInv;
-            printf("b");
+            term->type = TInv;
         }
 
         term->app = (App){left, right};
@@ -138,26 +136,83 @@ Term *parse(char **str) {
     case LDot:
     case LInv:
     case LEof:
-        printf("c");
-        term->type = PInv;
+        term->type = TInv;
         break;
     }
 
     return term;
 }
 
+Term *parse(char **str) {
+    Term *term = parse_once(str);
+    if (term->type == TInv) {
+        return term;
+    }
+    while (**str != '\0') {
+        Term *right = parse_once(str);
+        if (right->type != TInv) {
+            Term *left = term;
+            term = malloc(sizeof(Term));
+            term->type = TApp;
+            term->app.right = right;
+            term->app.left = left;
+        }
+        else {
+            break;
+        }
+    }
+    return term;
+}
+
+void subst(Term *in, Var what, Term *to) {
+    switch (in->type) {
+    case TVar:
+        if (in->var.name == what.name) {
+            *in = *to;
+        }
+        break;
+    case TAbs:
+        subst(in->abs.body, what, to);
+        break;
+    case TApp:
+        subst(in->app.left, what, to);
+        subst(in->app.right, what, to);
+        break;
+    case TInv:
+        break;
+    }
+}
+
+bool reduce(Term *term) {
+    if (term->type == TApp) {
+        Term *left = term->app.left;
+        Term *right = term->app.right;
+        bool reduced = reduce(left) || reduce(right);
+
+        if (left->type == TAbs) {
+            subst(left, left->abs.var, right);
+            *term = *left->abs.body;
+            return true;
+        }
+        return reduced;
+    } else if (term->type == TAbs) {
+        return reduce(term->abs.body);
+    }
+    return false;
+}
+
 int display(char *buf, int buf_len, Term *term) {
     int n = 0;
     switch (term->type) {
-    case PVar:
+    case TVar:
         n += snprintf(buf, buf_len, "%c", term->var.name);
         break;
-    case PAbs:
+    case TAbs:
         n += snprintf(buf, buf_len, "\\%c.", term->abs.var.name);
         n += display(buf + n, buf_len - n, term->abs.body);
 
         break;
-    case PApp:
+    case TApp:
         n += snprintf(buf, buf_len, "(");
         n += display(buf + n, buf_len - n, term->app.left);
         n += snprintf(buf + n, buf_len - n, " ");
@@ -165,46 +220,10 @@ int display(char *buf, int buf_len, Term *term) {
         n += snprintf(buf + n, buf_len - n, ")");
 
         break;
-    case PInv:
+    case TInv:
         break;
     }
     buf[n] = '\0';
     return n;
 }
 
-void subst(Term *in, Var what, Term *to) {
-    switch (in->type) {
-    case PVar:
-        if (in->var.name == what.name) {
-            *in = *to;
-        }
-        break;
-    case PAbs:
-        subst(in->abs.body, what, to);
-        break;
-    case PApp:
-        subst(in->app.left, what, to);
-        subst(in->app.right, what, to);
-        break;
-    case PInv:
-        break;
-    }
-}
-
-bool reduce(Term *term) {
-    if (term->type == PApp) {
-        Term *left = term->app.left;
-        Term *right = term->app.right;
-        bool reduced = reduce(left) || reduce(right);
-
-        if (left->type == PAbs) {
-            subst(left, left->abs.var, right);
-            *term = *left->abs.body;
-            return true;
-        }
-        return reduced;
-    } else if (term->type == PAbs) {
-        return reduce(term->abs.body);
-    }
-    return false;
-}
