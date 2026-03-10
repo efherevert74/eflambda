@@ -93,6 +93,8 @@ struct Term {
     };
 };
 
+Term *parse(char **str);
+
 Term *parse_once(char **str) {
     Tok tok = lex(str);
     Term *term = malloc(sizeof(Term));
@@ -114,23 +116,7 @@ Term *parse_once(char **str) {
         term->abs = (Abs){var->var, body};
         break;
     case LLParen:
-        term->type = TApp;
-
-        Term *left = parse_once(str);
-        char *str_lookahead = *str;
-        // abstraction/variable
-        if (lex(&str_lookahead).type == LRParen) {
-            *term = *left;
-            *str = str_lookahead;
-            break;
-        }
-        // application
-        Term *right = parse_once(str);
-        if (lex(str).type != LRParen) {
-            term->type = TInv;
-        }
-
-        term->app = (App){left, right};
+        term = parse(str);
         break;
     case LRParen:
     case LDot:
