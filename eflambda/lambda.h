@@ -1,3 +1,6 @@
+#ifndef LAMBDA_H
+#define LAMBDA_H
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -370,3 +373,5 @@ void dbg(Term *term) {
     }
     printf("%s:\t%s\n", typ, buf);
 }
+
+#endif // !LAMBDA_H

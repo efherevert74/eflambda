@@ -4,7 +4,7 @@ TARGET := $(TARGET_DIR)/lambda.exe
 CC := gcc
 CFLAGS_FILE := ./compile_flags.txt
 
-$(TARGET): main.c lambda.c $(CFLAGS_FILE) | $(TARGET_DIR)
+$(TARGET): main.c lambda.h $(CFLAGS_FILE) | $(TARGET_DIR)
 	$(CC) $< -o $@ `paste -sd " " $(CFLAGS_FILE)`
 
 $(TARGET_DIR):

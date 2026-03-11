@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "lambda.c"
+#include "lambda.h"
 
 #define MAX_INPUT_LEN 1024
 
