@@ -11,12 +11,16 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
+#define STB_DS_IMPLEMENTATION
+#include "stb_ds.h"
+
 typedef enum {
     LLParen,
     LRParen,
     LDot,
     LLambda,
     LVar,
+    LEq,
     LInv,
     LEof,
 } TokType;
@@ -48,10 +52,15 @@ Tok lex(char **str) {
         case '\\':
             tok.type = LLambda;
             break;
+        case '=':
+            tok.type = LEq;
+            break;
         default:;
             (*str)--;
             int n = 0;
-            while (isalpha((*str)[n])) {
+            char c;
+            while ((c = (*str)[n]) && !isspace(c) && c != '(' && c != ')' &&
+                   c != '.' && c != '\\' && c != '=') {
                 n++;
             }
             if (n == 0) {
@@ -112,12 +121,17 @@ struct Term {
     };
 };
 
+typedef struct {
+    char *key;
+    Term value;
+} VarLib;
+
 // Function headers
-Term *term_parse(char **str);
-Term *term_parse_once(char **str);
+Term *term_parse(char **str, VarLib **lib);
+Term *term_parse_once(char **str, VarLib **lib);
 
 void term_subst(Term *in, Var what, Term *to);
-bool term_reduce(Term *term);
+bool term_reduce(Term *term, VarLib **lib, bool lazy);
 
 Term *term_copy(Term *term);
 void term_free(Term *term);
@@ -125,7 +139,7 @@ void term_free(Term *term);
 int term_display(char *buf, int buf_len, Term *term);
 void term_dbg(Term *term);
 
-Term *term_parse_once(char **str) {
+Term *term_parse_once(char **str, VarLib **lib) {
     Tok tok = lex(str);
     Term *term = malloc(sizeof(Term));
     switch (tok.type) {
@@ -136,12 +150,12 @@ Term *term_parse_once(char **str) {
     case LLambda: {
         term->type = TAbs;
 
-        Term *var = term_parse_once(str);
+        Term *var = term_parse_once(str, lib);
         if (var->type != TVar || lex(str).type != LDot) {
             term->type = TInv;
             break;
         }
-        Term *body = term_parse_once(str);
+        Term *body = term_parse_once(str, lib);
 
         term->abs = (Abs){var->var, body};
         free(var);
@@ -149,7 +163,11 @@ Term *term_parse_once(char **str) {
     }
     case LLParen:
         free(term);
-        term = term_parse(str);
+        term = term_parse(str, lib);
+        break;
+    case LEq:
+        free(term);
+        term = term_parse(str, lib);
         break;
     case LRParen:
     case LDot:
@@ -162,10 +180,24 @@ Term *term_parse_once(char **str) {
     return term;
 }
 
-Term *term_parse(char **str) {
-    Term *term = term_parse_once(str);
+Term *term_parse(char **str, VarLib **lib) {
+    Term *term = term_parse_once(str, lib);
     while (term->type != TInv) {
-        Term *right = term_parse_once(str);
+        if (term->type == TVar) {
+            char *str_lookahead = *str;
+            if (lex(&str_lookahead).type == LEq) {
+                *str = str_lookahead;
+                Term *right = term_parse(str, lib);
+                Term *value_copy = term_copy(right);
+                shput(*lib, term->var.name, *value_copy);
+                free(value_copy);
+                free(term);
+                term = right;
+                return term;
+            }
+        }
+
+        Term *right = term_parse_once(str, lib);
         if (right->type == TInv) {
             break;
         }
@@ -283,16 +315,18 @@ void term_subst(Term *in, Var what, Term *to) {
     }
 }
 
-bool term_reduce(Term *term) {
+typedef struct BoundVarCtx BoundVarCtx;
+struct BoundVarCtx {
+    const char *name;
+    BoundVarCtx *parent;
+};
+
+bool term_reduce_worker(Term *term, VarLib **lib, BoundVarCtx *ctx, bool lazy) {
     if (term->type == TApp) {
         Term *left = term->app.left;
         Term *right = term->app.right;
 
-        if (term_reduce(left) || term_reduce(right)) {
-            return true;
-        }
-
-        // Beta-reduction
+        // beta-reduction
         if (left->type == TAbs) {
             term_subst(left->abs.body, left->abs.var, right);
 
@@ -306,11 +340,38 @@ bool term_reduce(Term *term) {
 
             return true;
         }
-        return false;
+
+        return term_reduce_worker(left, lib, ctx, lazy) ||
+               term_reduce_worker(right, lib, ctx, lazy);
+
     } else if (term->type == TAbs) {
-        return term_reduce(term->abs.body);
+        if (lazy) {
+            return false;
+        }
+        BoundVarCtx new_ctx = {term->abs.var.name, ctx};
+        return term_reduce_worker(term->abs.body, lib, &new_ctx, lazy);
+    } else if (term->type == TVar) {
+        for (BoundVarCtx *cur = ctx; cur != NULL; cur = cur->parent) {
+            if (strcmp(cur->name, term->var.name) == 0) {
+                return false;
+            }
+        }
+        int idx = shgeti(*lib, term->var.name);
+        if (idx != -1) {
+            Term *copy = term_copy(&(*lib)[idx].value);
+            char *old_name = term->var.name;
+            *term = *copy;
+            free(copy);
+            free(old_name);
+            return true;
+        }
+        return false;
     }
     return false;
+}
+
+bool term_reduce(Term *term, VarLib **lib, bool lazy) {
+    return term_reduce_worker(term, lib, NULL, lazy);
 }
 
 void term_free(Term *term) {
