@@ -140,6 +140,7 @@ Term *parse_once(char **str) {
         free(var);
         break;
     case LLParen:
+        free(term);
         term = parse(str);
         break;
     case LRParen:
@@ -255,13 +256,12 @@ void subst(Term *in, Var what, Term *to) {
 
             char *new_name = malloc(n);
             snprintf(new_name, n, "%s%i", in->abs.var.name, name_idx);
-            new_name[n] = '\0';
 
             Var new_var = {new_name};
 
-            rename_var(in->abs.body, in->var, new_var);
-            free(in->var.name);
-            in->var = new_var;
+            rename_var(in->abs.body, in->abs.var, new_var);
+            free(in->abs.var.name);
+            in->abs.var = new_var;
         }
 
         subst(in->abs.body, what, to);
