@@ -20,16 +20,16 @@ int main(int argc, char **argv) {
         }
 
         char *str = buf;
-        Term *term = parse(&str);
-        display(buf, sizeof(buf), term);
+        Term *term = term_parse(&str);
+        term_display(buf, sizeof(buf), term);
         printf("> %s\n", buf);
 
-        while (reduce(term)) {
-            display(buf, sizeof(buf), term);
+        while (term_reduce(term)) {
+            term_display(buf, sizeof(buf), term);
             printf("> %s\n", buf);
         }
 
-        free_term(term);
+        term_free(term);
 
         printf("\n");
     }

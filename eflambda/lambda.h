@@ -109,19 +109,19 @@ struct Term {
 };
 
 // Function headers
-Term *parse(char **str);
-Term *parse_once(char **str);
+Term *term_parse(char **str);
+Term *term_parse_once(char **str);
 
-void subst(Term *in, Var what, Term *to);
-bool reduce(Term *term);
+void term_subst(Term *in, Var what, Term *to);
+bool term_reduce(Term *term);
 
-Term *copy_term(Term *term);
-void free_term(Term *term);
+Term *term_copy(Term *term);
+void term_free(Term *term);
 
-int display(char *buf, int buf_len, Term *term);
-void dbg(Term *term);
+int term_display(char *buf, int buf_len, Term *term);
+void term_dbg(Term *term);
 
-Term *parse_once(char **str) {
+Term *term_parse_once(char **str) {
     Tok tok = lex(str);
     Term *term = malloc(sizeof(Term));
     switch (tok.type) {
@@ -132,19 +132,19 @@ Term *parse_once(char **str) {
     case LLambda:
         term->type = TAbs;
 
-        Term *var = parse_once(str);
+        Term *var = term_parse_once(str);
         if (var->type != TVar || lex(str).type != LDot) {
             term->type = TInv;
             break;
         }
-        Term *body = parse_once(str);
+        Term *body = term_parse_once(str);
 
         term->abs = (Abs){var->var, body};
         free(var);
         break;
     case LLParen:
         free(term);
-        term = parse(str);
+        term = term_parse(str);
         break;
     case LRParen:
     case LDot:
@@ -157,10 +157,10 @@ Term *parse_once(char **str) {
     return term;
 }
 
-Term *parse(char **str) {
-    Term *term = parse_once(str);
+Term *term_parse(char **str) {
+    Term *term = term_parse_once(str);
     while (term->type != TInv) {
-        Term *right = parse_once(str);
+        Term *right = term_parse_once(str);
         if (right->type == TInv) {
             break;
         }
@@ -173,7 +173,7 @@ Term *parse(char **str) {
     return term;
 }
 
-Term *copy_term(Term *term) {
+Term *term_copy(Term *term) {
     Term *copy = malloc(sizeof(Term));
     copy->type = term->type;
     switch (term->type) {
@@ -182,11 +182,11 @@ Term *copy_term(Term *term) {
         break;
     case TAbs:
         copy->abs.var.name = strdup(term->abs.var.name);
-        copy->abs.body = copy_term(term->abs.body);
+        copy->abs.body = term_copy(term->abs.body);
         break;
     case TApp:
-        copy->app.left = copy_term(term->app.left);
-        copy->app.right = copy_term(term->app.right);
+        copy->app.left = term_copy(term->app.left);
+        copy->app.right = term_copy(term->app.right);
         break;
     case TInv:
         break;
@@ -234,11 +234,11 @@ void rename_var(Term *in, Var what, Var to) {
     }
 }
 
-void subst(Term *in, Var what, Term *to) {
+void term_subst(Term *in, Var what, Term *to) {
     switch (in->type) {
     case TVar:
         if (strcmp(in->var.name, what.name) == 0) {
-            Term *copy = copy_term(to);
+            Term *copy = term_copy(to);
             char *old_name = in->var.name;
             *in = *copy;
             free(copy);
@@ -267,29 +267,29 @@ void subst(Term *in, Var what, Term *to) {
             in->abs.var = new_var;
         }
 
-        subst(in->abs.body, what, to);
+        term_subst(in->abs.body, what, to);
         break;
     case TApp:
-        subst(in->app.left, what, to);
-        subst(in->app.right, what, to);
+        term_subst(in->app.left, what, to);
+        term_subst(in->app.right, what, to);
         break;
     case TInv:
         break;
     }
 }
 
-bool reduce(Term *term) {
+bool term_reduce(Term *term) {
     if (term->type == TApp) {
         Term *left = term->app.left;
         Term *right = term->app.right;
 
-        if (reduce(left) || reduce(right)) {
+        if (term_reduce(left) || term_reduce(right)) {
             return true;
         }
 
         // Beta-reduction
         if (left->type == TAbs) {
-            subst(left->abs.body, left->abs.var, right);
+            term_subst(left->abs.body, left->abs.var, right);
 
             Term *body = left->abs.body;
             *term = *body;
@@ -297,36 +297,36 @@ bool reduce(Term *term) {
             free(body);
             free(left->abs.var.name);
             free(left);
-            free_term(right);
+            term_free(right);
 
             return true;
         }
         return false;
     } else if (term->type == TAbs) {
-        return reduce(term->abs.body);
+        return term_reduce(term->abs.body);
     }
     return false;
 }
 
-void free_term(Term *term) {
+void term_free(Term *term) {
     switch (term->type) {
     case TVar:
         free(term->var.name);
         break;
     case TAbs:
         free(term->abs.var.name);
-        free_term(term->abs.body);
+        term_free(term->abs.body);
         break;
     case TApp:
-        free_term(term->app.left);
-        free_term(term->app.right);
+        term_free(term->app.left);
+        term_free(term->app.right);
         break;
     case TInv:
         break;
     }
 }
 
-int display(char *buf, int buf_len, Term *term) {
+int term_display(char *buf, int buf_len, Term *term) {
     int n = 0;
     switch (term->type) {
     case TVar:
@@ -334,14 +334,14 @@ int display(char *buf, int buf_len, Term *term) {
         break;
     case TAbs:
         n += snprintf(buf, buf_len, "\\%s.", term->abs.var.name);
-        n += display(buf + n, buf_len - n, term->abs.body);
+        n += term_display(buf + n, buf_len - n, term->abs.body);
 
         break;
     case TApp:
         n += snprintf(buf, buf_len, "(");
-        n += display(buf + n, buf_len - n, term->app.left);
+        n += term_display(buf + n, buf_len - n, term->app.left);
         n += snprintf(buf + n, buf_len - n, " ");
-        n += display(buf + n, buf_len - n, term->app.right);
+        n += term_display(buf + n, buf_len - n, term->app.right);
         n += snprintf(buf + n, buf_len - n, ")");
 
         break;
@@ -353,9 +353,9 @@ int display(char *buf, int buf_len, Term *term) {
     return n;
 }
 
-void dbg(Term *term) {
+void term_dbg(Term *term) {
     char buf[256];
-    display(buf, sizeof(buf), term);
+    term_display(buf, sizeof(buf), term);
     char *typ;
     switch (term->type) {
     case TVar:
