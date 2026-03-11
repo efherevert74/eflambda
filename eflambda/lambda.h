@@ -1,6 +1,10 @@
 #ifndef LAMBDA_H
 #define LAMBDA_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -129,7 +133,7 @@ Term *term_parse_once(char **str) {
         term->type = TVar;
         term->var = (Var){tok.var};
         break;
-    case LLambda:
+    case LLambda: {
         term->type = TAbs;
 
         Term *var = term_parse_once(str);
@@ -142,6 +146,7 @@ Term *term_parse_once(char **str) {
         term->abs = (Abs){var->var, body};
         free(var);
         break;
+    }
     case LLParen:
         free(term);
         term = term_parse(str);
@@ -373,5 +378,9 @@ void term_dbg(Term *term) {
     }
     printf("%s:\t%s\n", typ, buf);
 }
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif // !LAMBDA_H
