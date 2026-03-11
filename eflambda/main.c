@@ -29,6 +29,8 @@ int main(int argc, char **argv) {
             printf("> %s\n", buf);
         }
 
+        free_term(term);
+
         printf("\n");
     }
 }
