@@ -25,12 +25,6 @@ typedef enum {
     LEof,
 } TokType;
 
-int pstr = 0;
-int nstr = 0;
-
-int pterm = 0;
-int nterm = 0;
-
 typedef struct {
     TokType type;
     char *var;
@@ -76,7 +70,6 @@ Tok lex(char **str) {
 
             tok.type = LVar;
             tok.var = memcpy(malloc(n + 1), *str, n);
-            pstr++;
             tok.var[n] = '\0';
             *str += n;
 
@@ -149,7 +142,6 @@ void term_dbg(Term *term);
 Term *term_parse_once(char **str, VarLib **lib) {
     Tok tok = lex(str);
     Term *term = malloc(sizeof(Term));
-    pterm++;
     switch (tok.type) {
     case LVar:
         term->type = TVar;
@@ -167,17 +159,14 @@ Term *term_parse_once(char **str, VarLib **lib) {
 
         term->abs = (Abs){var->var, body};
         free(var);
-        nterm++;
         break;
     }
     case LLParen:
         free(term);
-        nterm++;
         term = term_parse(str, lib);
         break;
     case LEq:
         free(term);
-        nterm++;
         term = term_parse(str, lib);
         break;
     case LRParen:
@@ -196,17 +185,18 @@ Term *term_parse(char **str, VarLib **lib) {
     while (term->type != TInv) {
         if (term->type == TVar) {
             char *str_lookahead = *str;
-            if (lex(&str_lookahead).type == LEq) {
+            Tok tok = lex(&str_lookahead);
+            if (tok.type == LEq) {
                 *str = str_lookahead;
                 Term *right = term_parse(str, lib);
                 Term *value_copy = term_copy(right);
                 shput(*lib, term->var.name, *value_copy);
                 free(value_copy);
-                nterm++;
                 free(term);
-                nterm++;
                 term = right;
                 return term;
+            } else if (tok.type == LVar) {
+                free(tok.var);
             }
         }
 
@@ -217,7 +207,6 @@ Term *term_parse(char **str, VarLib **lib) {
         }
         Term *left = term;
         term = malloc(sizeof(Term));
-        pterm++;
         term->type = TApp;
         term->app.right = right;
         term->app.left = left;
@@ -227,16 +216,13 @@ Term *term_parse(char **str, VarLib **lib) {
 
 Term *term_copy(Term *term) {
     Term *copy = malloc(sizeof(Term));
-    pterm++;
     copy->type = term->type;
     switch (term->type) {
     case TVar:
         copy->var.name = strdup(term->var.name);
-        pstr++;
         break;
     case TAbs:
         copy->abs.var.name = strdup(term->abs.var.name);
-        pstr++;
         copy->abs.body = term_copy(term->abs.body);
         break;
     case TApp:
@@ -272,9 +258,7 @@ void rename_var(Term *in, Var what, Var to) {
     case TVar:
         if (strcmp(in->var.name, what.name) == 0) {
             free(in->var.name);
-            nstr++;
             in->var.name = strdup(to.name);
-            pstr++;
         }
         break;
     case TAbs:
@@ -299,9 +283,7 @@ void term_subst(Term *in, Var what, Term *to) {
             char *old_name = in->var.name;
             *in = *copy;
             free(copy);
-            nterm++;
             free(old_name);
-            nstr++;
         }
         break;
     case TAbs:
@@ -317,14 +299,12 @@ void term_subst(Term *in, Var what, Term *to) {
             int n = snprintf(NULL, 0, "%s%i", in->abs.var.name, name_idx) + 1;
 
             char *new_name = malloc(n);
-            pstr++;
             snprintf(new_name, n, "%s%i", in->abs.var.name, name_idx);
 
             Var new_var = {new_name};
 
             rename_var(in->abs.body, in->abs.var, new_var);
             free(in->abs.var.name);
-            nstr++;
             in->abs.var = new_var;
         }
 
@@ -358,11 +338,8 @@ bool term_reduce_worker(Term *term, VarLib **lib, BoundVarCtx *ctx, bool lazy) {
             *term = *body;
 
             free(body);
-            nterm++;
             free(left->abs.var.name);
-            nstr++;
             free(left);
-            nterm++;
             term_free(right);
 
             return true;
@@ -389,9 +366,7 @@ bool term_reduce_worker(Term *term, VarLib **lib, BoundVarCtx *ctx, bool lazy) {
             char *old_name = term->var.name;
             *term = *copy;
             free(copy);
-            nterm++;
             free(old_name);
-            nstr++;
             return true;
         }
         return false;
@@ -409,11 +384,9 @@ void term_free(Term *term) {
     switch (term->type) {
     case TVar:
         free(term->var.name);
-        nstr++;
         break;
     case TAbs:
         free(term->abs.var.name);
-        nstr++;
         term_free(term->abs.body);
         break;
     case TApp:
@@ -424,7 +397,6 @@ void term_free(Term *term) {
         break;
     }
     free(term);
-    nterm++;
 }
 
 int term_display(char *buf, int buf_len, Term *term) {
@@ -473,11 +445,6 @@ void term_dbg(Term *term) {
         break;
     }
     printf("%s:\t%s\n", typ, buf);
-}
-
-void mem_dbg() {
-    printf("MEM:\n +term = %8i \t -term = %8i\n +str  = %8i \t -str  = %8i\n",
-           pterm, nterm, pstr, nstr);
 }
 
 #ifdef __cplusplus
