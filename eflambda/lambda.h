@@ -30,6 +30,11 @@ typedef struct {
     char *var;
 } Tok;
 
+bool is_valid_for_var(char c) {
+    return !isspace(c) && c != '(' && c != ')' && c != '.' && c != '\\' &&
+           c != '=';
+}
+
 Tok lex(char **str) {
     char c;
     Tok tok;
@@ -59,8 +64,7 @@ Tok lex(char **str) {
             (*str)--;
             int n = 0;
             char c;
-            while ((c = (*str)[n]) && !isspace(c) && c != '(' && c != ')' &&
-                   c != '.' && c != '\\' && c != '=') {
+            while ((c = (*str)[n]) && is_valid_for_var(c)) {
                 n++;
             }
             if (n == 0) {
