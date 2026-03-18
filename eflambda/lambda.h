@@ -411,22 +411,34 @@ int term_display(char *buf, int buf_len, Term *term) {
         break;
     case TAbs:
         n += snprintf(buf, buf_len, "\\%s.", term->abs.var.name);
-        n += term_display(buf + n, buf_len - n, term->abs.body);
+        if (buf == NULL && buf_len == 0) {
+            n += term_display(NULL, 0, term->abs.body);
+        } else {
+            n += term_display(buf + n, buf_len - n, term->abs.body);
+        }
 
         break;
     case TApp:
-        n += snprintf(buf, buf_len, "(");
-        n += term_display(buf + n, buf_len - n, term->app.left);
-        n += snprintf(buf + n, buf_len - n, " ");
-        n += term_display(buf + n, buf_len - n, term->app.right);
-        n += snprintf(buf + n, buf_len - n, ")");
+        if (buf == NULL && buf_len == 0) {
+            n += term_display(NULL, 0, term->app.left);
+            n += term_display(NULL, 0, term->app.right);
+            n += 3;
+        } else {
+            n += snprintf(buf, buf_len, "(");
+            n += term_display(buf + n, buf_len - n, term->app.left);
+            n += snprintf(buf + n, buf_len - n, " ");
+            n += term_display(buf + n, buf_len - n, term->app.right);
+            n += snprintf(buf + n, buf_len - n, ")");
+        }
 
         break;
     case TInv:
         n += snprintf(buf, buf_len, "INV");
         break;
     }
-    buf[n] = '\0';
+    if (buf == NULL) {
+        n += 1;
+    }
     return n;
 }
 
