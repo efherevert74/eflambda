@@ -191,18 +191,15 @@ Term *term_parse(char **str, VarLib **lib, bool read_only) {
             char *str_lookahead = *str;
             Tok tok = lex(&str_lookahead);
             if (tok.type == LEq) {
-                if (read_only) {
-                    // treat the variable as the whole term and stop
-                    return term;
-                } else { // commit => do the assignment
-                    *str = str_lookahead;
-                    Term *right = term_parse(str, lib, read_only);
+                *str = str_lookahead;
+                Term *right = term_parse(str, lib, read_only);
+                if (!read_only) {
                     Term *value_copy = term_copy(right);
                     shput(*lib, term->var.name, *value_copy);
                     free(value_copy);
-                    free(term);
-                    return right;
                 }
+                free(term);
+                return right;
             } else if (tok.type == LVar) {
                 free(tok.var); // free the lookahead name
             }
