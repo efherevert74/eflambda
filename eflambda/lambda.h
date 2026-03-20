@@ -131,8 +131,8 @@ typedef struct {
 } VarLib;
 
 // Function headers
-Term *term_parse(char **str, VarLib **lib);
-Term *term_parse_once(char **str, VarLib **lib);
+Term *term_parse(char **str, VarLib **lib, bool read_only);
+Term *term_parse_once(char **str, VarLib **lib, bool read_only);
 
 void term_subst(Term *in, Var what, Term *to);
 bool term_reduce(Term *term, VarLib **lib, bool lazy);
@@ -143,7 +143,7 @@ void term_free(Term *term);
 int term_display(char *buf, int buf_len, Term *term);
 void term_dbg(Term *term);
 
-Term *term_parse_once(char **str, VarLib **lib) {
+Term *term_parse_once(char **str, VarLib **lib, bool read_only) {
     Tok tok = lex(str);
     Term *term = malloc(sizeof(Term));
     switch (tok.type) {
@@ -154,12 +154,12 @@ Term *term_parse_once(char **str, VarLib **lib) {
     case LLambda: {
         term->type = TAbs;
 
-        Term *var = term_parse_once(str, lib);
+        Term *var = term_parse_once(str, lib, read_only);
         if (var->type != TVar || lex(str).type != LDot) {
             term->type = TInv;
             break;
         }
-        Term *body = term_parse_once(str, lib);
+        Term *body = term_parse_once(str, lib, read_only);
 
         term->abs = (Abs){var->var, body};
         free(var);
@@ -167,11 +167,11 @@ Term *term_parse_once(char **str, VarLib **lib) {
     }
     case LLParen:
         free(term);
-        term = term_parse(str, lib);
+        term = term_parse(str, lib, read_only);
         break;
     case LEq:
         free(term);
-        term = term_parse(str, lib);
+        term = term_parse(str, lib, read_only);
         break;
     case LRParen:
     case LDot:
@@ -184,27 +184,31 @@ Term *term_parse_once(char **str, VarLib **lib) {
     return term;
 }
 
-Term *term_parse(char **str, VarLib **lib) {
-    Term *term = term_parse_once(str, lib);
+Term *term_parse(char **str, VarLib **lib, bool read_only) {
+    Term *term = term_parse_once(str, lib, read_only);
     while (term->type != TInv) {
         if (term->type == TVar) {
             char *str_lookahead = *str;
             Tok tok = lex(&str_lookahead);
             if (tok.type == LEq) {
-                *str = str_lookahead;
-                Term *right = term_parse(str, lib);
-                Term *value_copy = term_copy(right);
-                shput(*lib, term->var.name, *value_copy);
-                free(value_copy);
-                free(term);
-                term = right;
-                return term;
+                if (read_only) {
+                    // treat the variable as the whole term and stop
+                    return term;
+                } else { // commit => do the assignment
+                    *str = str_lookahead;
+                    Term *right = term_parse(str, lib, read_only);
+                    Term *value_copy = term_copy(right);
+                    shput(*lib, term->var.name, *value_copy);
+                    free(value_copy);
+                    free(term);
+                    return right;
+                }
             } else if (tok.type == LVar) {
-                free(tok.var);
+                free(tok.var); // free the lookahead name
             }
         }
 
-        Term *right = term_parse_once(str, lib);
+        Term *right = term_parse_once(str, lib, read_only);
         if (right->type == TInv) {
             term_free(right);
             break;
