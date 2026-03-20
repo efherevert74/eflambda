@@ -60,7 +60,7 @@ Tok lex(char **str) {
         case '=':
             tok.type = LEq;
             break;
-        default:;
+        default:
             (*str)--;
             int n = 0;
             char c;
@@ -155,7 +155,18 @@ Term *term_parse_once(char **str, VarLib **lib, bool read_only) {
         term->type = TAbs;
 
         Term *var = term_parse_once(str, lib, read_only);
-        if (var->type != TVar || lex(str).type != LDot) {
+        if (var->type != TVar) {
+            term_free(var);
+            term->type = TInv;
+            break;
+        }
+
+        Tok dot = lex(str);
+        if (dot.type != LDot) {
+            term_free(var);
+            if (dot.type == LVar) {
+                free(dot.var);
+            }
             term->type = TInv;
             break;
         }
