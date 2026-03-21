@@ -146,6 +146,7 @@ void term_dbg(Term *term);
 Term *term_parse_once(char **str, VarLib **lib, bool read_only) {
     Tok tok = lex(str);
     Term *term = malloc(sizeof(Term));
+
     switch (tok.type) {
     case LVar:
         term->type = TVar;
@@ -171,6 +172,12 @@ Term *term_parse_once(char **str, VarLib **lib, bool read_only) {
             break;
         }
         Term *body = term_parse_once(str, lib, read_only);
+        if (body->type == TInv) {
+            term_free(var);
+            term_free(body);
+            term->type = TInv;
+            break;
+        }
 
         term->abs = (Abs){var->var, body};
         free(var);
@@ -197,7 +204,11 @@ Term *term_parse_once(char **str, VarLib **lib, bool read_only) {
 
 Term *term_parse(char **str, VarLib **lib, bool read_only) {
     Term *term = term_parse_once(str, lib, read_only);
-    while (term->type != TInv) {
+    if (term->type == TInv) {
+        return term;
+    }
+
+    while (true) {
         if (term->type == TVar) {
             char *str_lookahead = *str;
             Tok tok = lex(&str_lookahead);
@@ -221,6 +232,7 @@ Term *term_parse(char **str, VarLib **lib, bool read_only) {
             term_free(right);
             break;
         }
+
         Term *left = term;
         term = malloc(sizeof(Term));
         term->type = TApp;
