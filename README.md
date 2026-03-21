@@ -3,7 +3,7 @@
 Header only library for interpreting and reducing lambda calculus expressions.
 Has support for variables and lazy evaluation.
 
-## Using
+## Usage
 
 You should have stb_ds.h in your include path when compiling.
 Other than that just include the `eflambda.h` header.
