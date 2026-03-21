@@ -1,11 +1,11 @@
-#ifndef LAMBDA_STD_H
-#define LAMBDA_STD_H
+#ifndef EFLAMBDA_STD_H
+#define EFLAMBDA_STD_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 
-#include "lambda.h"
+#include "eflambda.h"
 
 void fill_std_lib(VarLib **lib) {
     char *str;
@@ -94,4 +94,4 @@ void fill_std_lib(VarLib **lib) {
 }
 #endif // __cplusplus
 
-#endif // !LAMBDA_STD_H
+#endif // !EFLAMBDA_STD_H

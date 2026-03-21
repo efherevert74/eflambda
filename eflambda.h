@@ -1,5 +1,5 @@
-#ifndef LAMBDA_H
-#define LAMBDA_H
+#ifndef EFLAMBDA_H
+#define EFLAMBDA_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -491,4 +491,4 @@ void term_dbg(Term *term) {
 }
 #endif // __cplusplus
 
-#endif // !LAMBDA_H
+#endif // !EFLAMBDA_H
