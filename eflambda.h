@@ -39,6 +39,11 @@ Tok lex(char **str) {
     char c;
     Tok tok;
 
+    if (**str == '\0') {
+        tok.type = LEof;
+        return tok;
+    }
+
     while ((c = *((*str)++)) != '\0') {
         switch (c) {
         case ' ':
