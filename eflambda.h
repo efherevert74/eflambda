@@ -1,10 +1,6 @@
 #ifndef EFLAMBDA_H
 #define EFLAMBDA_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
-
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -487,9 +483,5 @@ void term_dbg(Term *term) {
     }
     printf("%s:\t%s\n", typ, buf);
 }
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus
 
 #endif // !EFLAMBDA_H
