@@ -180,10 +180,18 @@ Term *term_parse_once(char **str, VarLib **lib, bool read_only) {
         free(var);
         break;
     }
-    case LLParen:
+    case LLParen: {
         free(term);
         term = term_parse(str, lib, read_only);
+        if (term->type == TInv) {
+            break;
+        }
+        Tok tok = lex(str);
+        if (tok.type != LRParen) {
+            term->type = TInv;
+        }
         break;
+    }
     case LEq:
         free(term);
         term = term_parse(str, lib, read_only);
@@ -206,22 +214,27 @@ Term *term_parse(char **str, VarLib **lib, bool read_only) {
     }
 
     while (true) {
-        if (term->type == TVar) {
-            char *str_lookahead = *str;
-            Tok tok = lex(&str_lookahead);
-            if (tok.type == LEq) {
-                *str = str_lookahead;
-                Term *right = term_parse(str, lib, read_only);
-                if (!read_only) {
-                    Term *value_copy = term_copy(right);
-                    shput(*lib, term->var.name, *value_copy);
-                    free(value_copy);
-                }
-                free(term);
-                return right;
-            } else if (tok.type == LVar) {
-                free(tok.var); // free the lookahead name
+        char *str_lookahead = *str;
+        Tok tok = lex(&str_lookahead);
+
+        if (tok.type == LRParen) {
+            break;
+        }
+
+        if (term->type == TVar && tok.type == LEq) {
+            *str = str_lookahead;
+            Term *right = term_parse(str, lib, read_only);
+            if (!read_only) {
+                Term *value_copy = term_copy(right);
+                shput(*lib, term->var.name, *value_copy);
+                free(value_copy);
             }
+            free(term);
+            return right;
+        }
+
+        if (tok.type == LVar) {
+            free(tok.var);
         }
 
         Term *right = term_parse_once(str, lib, read_only);
