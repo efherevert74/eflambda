@@ -444,14 +444,20 @@ int term_display(char *buf, int buf_len, Term *term) {
         n += snprintf(buf, buf_len, "%s", term->var.name);
         break;
     case TAbs:
-        n += snprintf(buf, buf_len, "(\\%s.", term->abs.var.name);
+        n += snprintf(buf, buf_len, "\\%s.", term->abs.var.name);
         n += term_display(buf + n, buf_len - n, term->abs.body);
-        n += snprintf(buf + n, buf_len - n, ")");
 
         break;
     case TApp:
-        n += term_display(buf + n, buf_len - n, term->app.left);
-        if (term->app.right->type == TApp) {
+        if (term->app.left->type == TAbs) {
+            n += snprintf(buf + n, buf_len - n, "(");
+            n += term_display(buf + n, buf_len - n, term->app.left);
+            n += snprintf(buf + n, buf_len - n, ")");
+        }
+        else {
+            n += term_display(buf + n, buf_len - n, term->app.left);
+        }
+        if (term->app.right->type == TApp || term->app.right->type == TAbs) {
             n += snprintf(buf + n, buf_len - n, " (");
             n += term_display(buf + n, buf_len - n, term->app.right);
             n += snprintf(buf + n, buf_len - n, ")");
