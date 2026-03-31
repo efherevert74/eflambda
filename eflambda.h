@@ -168,7 +168,7 @@ Term *term_parse_once(char **str, VarLib **lib, bool read_only) {
             term->type = TInv;
             break;
         }
-        Term *body = term_parse_once(str, lib, read_only);
+        Term *body = term_parse(str, lib, read_only);
         if (body->type == TInv) {
             term_free(var);
             term_free(body);
@@ -431,11 +431,12 @@ int term_display(char *buf, int buf_len, Term *term) {
         n += snprintf(buf, buf_len, "%s", term->var.name);
         break;
     case TAbs:
-        n += snprintf(buf, buf_len, "\\%s.", term->abs.var.name);
+        n += snprintf(buf, buf_len, "(\\%s.", term->abs.var.name);
         if (buf == NULL && buf_len == 0) {
-            n += term_display(NULL, 0, term->abs.body);
+            n += term_display(NULL, 0, term->abs.body) + 1;
         } else {
             n += term_display(buf + n, buf_len - n, term->abs.body);
+            n += snprintf(buf + n, buf_len - n, ")");
         }
 
         break;
@@ -445,11 +446,9 @@ int term_display(char *buf, int buf_len, Term *term) {
             n += term_display(NULL, 0, term->app.right);
             n += 3;
         } else {
-            n += snprintf(buf, buf_len, "(");
             n += term_display(buf + n, buf_len - n, term->app.left);
             n += snprintf(buf + n, buf_len - n, " ");
             n += term_display(buf + n, buf_len - n, term->app.right);
-            n += snprintf(buf + n, buf_len - n, ")");
         }
 
         break;
