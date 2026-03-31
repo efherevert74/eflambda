@@ -445,21 +445,17 @@ int term_display(char *buf, int buf_len, Term *term) {
         break;
     case TAbs:
         n += snprintf(buf, buf_len, "(\\%s.", term->abs.var.name);
-        if (buf == NULL && buf_len == 0) {
-            n += term_display(NULL, 0, term->abs.body) + 1;
-        } else {
-            n += term_display(buf + n, buf_len - n, term->abs.body);
-            n += snprintf(buf + n, buf_len - n, ")");
-        }
+        n += term_display(buf + n, buf_len - n, term->abs.body);
+        n += snprintf(buf + n, buf_len - n, ")");
 
         break;
     case TApp:
-        if (buf == NULL && buf_len == 0) {
-            n += term_display(NULL, 0, term->app.left);
-            n += term_display(NULL, 0, term->app.right);
-            n += 3;
+        n += term_display(buf + n, buf_len - n, term->app.left);
+        if (term->app.right->type == TApp) {
+            n += snprintf(buf + n, buf_len - n, " (");
+            n += term_display(buf + n, buf_len - n, term->app.right);
+            n += snprintf(buf + n, buf_len - n, ")");
         } else {
-            n += term_display(buf + n, buf_len - n, term->app.left);
             n += snprintf(buf + n, buf_len - n, " ");
             n += term_display(buf + n, buf_len - n, term->app.right);
         }
@@ -476,24 +472,27 @@ int term_display(char *buf, int buf_len, Term *term) {
 }
 
 void term_dbg(Term *term) {
-    char buf[256];
-    term_display(buf, sizeof(buf), term);
-    char *typ;
     switch (term->type) {
     case TVar:
-        typ = "TVar";
+        printf("TVar { name: '%s' }", term->var.name);
         break;
     case TAbs:
-        typ = "TAbs";
+        printf("TAbs { var: '%s', ", term->abs.var.name);
+        printf("body: ");
+        term_dbg(term->abs.body);
+        printf("}");
         break;
     case TApp:
-        typ = "TApp";
+        printf("TApp { left: ");
+        term_dbg(term->app.left);
+        printf(", right: ");
+        term_dbg(term->app.right);
+        printf("}");
         break;
     case TInv:
-        typ = "TInv";
+        printf("TInv");
         break;
     }
-    printf("%s:\t%s\n", typ, buf);
 }
 
 #endif // !EFLAMBDA_H
